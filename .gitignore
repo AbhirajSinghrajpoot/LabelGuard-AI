@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables
+.env
+**/.env
+.env.*
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Python virtual environments & bytecode
+venv/
+**/venv/
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Runtime uploads & generated reports
+uploads/*
+!uploads/.gitkeep
+reports/*
+!reports/.gitkeep
+
+# PaddleOCR & model weights cache
+.paddleocr/
+**/.paddleocr/
+
+# Build artifacts
+dist/
+**/dist/
+build/
+**/build/
+
+# IDE & Editor files
+.vscode/
+**/.vscode/
+.idea/
+*.swp
+*.bak
+
+# Temporary / scratch
+scratch/

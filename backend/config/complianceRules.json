@@ -1,0 +1,128 @@
+[
+  {
+    "ruleId": "mrp",
+    "declarationName": "Maximum Retail Price (MRP)",
+    "regulatorySource": "Legal Metrology (Packaged Commodities) Rules, 2011, as amended",
+    "applicableClause": "Rule 6(1)(e); see Rule 6(1)(g)(C) and the Rule 6(1)(e) provisos",
+    "effectiveDate": "2022-10-01",
+    "regulationVersion": "LMPC Rules 2011; reviewed through G.S.R. 826(E), 2026-09-21",
+    "sourceUrl": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf",
+    "amendmentSources": [
+      "https://legalmetrology-up.gov.in/metrology/pdf/PCR%20Amendment%202017%20GSR%20629%20(E)%2023.06.17.pdf",
+      "https://egazette.gov.in/WriteReadData/2026/276373.pdf"
+    ],
+    "validationConditions": {
+      "contextKeywords": ["MRP", "M.R.P.", "M.R.P", "maximum retail price", "max. retail price", "max retail price", "retail price", "mrp incl", "mrp ₹", "mrp rs"],
+      "requiresCurrency": true,
+      "requiresTaxInclusivePhrase": true,
+      "roundingIncrementPaise": 50,
+      "minimumOcrConfidence": 0.8
+    },
+    "applicabilityConditions": [
+      "Confirm the package is a pre-packaged commodity within the retail-package provisions."
+    ],
+    "applicabilityExemptions": [
+      "Rule 3 excludes certain non-retail, industrial/institutional and bulk packages (generally above 25 kg or 25 L, subject to stated exceptions).",
+      "Rule 26 exclusions include quantities of 10 g or 10 ml or less, certain restaurant/hotel fast-food packages, and specified drug formulations; tobacco products are treated separately under that rule.",
+      "Rule 6(1)(e) provisos for alcoholic beverages or spirituous liquor and prices fixed for essential commodities; Rule 6(1)(g)(C) also lists bidi and certain LPG packages."
+    ]
+  },
+  {
+    "ruleId": "net-quantity",
+    "declarationName": "Net Quantity",
+    "regulatorySource": "Legal Metrology (Packaged Commodities) Rules, 2011, as amended",
+    "applicableClause": "Rule 6(1)(c)",
+    "effectiveDate": "2011-04-01",
+    "regulationVersion": "LMPC Rules 2011; reviewed through G.S.R. 826(E), 2026-09-21",
+    "sourceUrl": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf",
+    "amendmentSources": [
+      "https://egazette.gov.in/WriteReadData/2026/276373.pdf"
+    ],
+    "validationConditions": {
+      "contextKeywords": ["net quantity", "net qty", "net weight", "net wt", "netwt", "net contents", "net content", "net volume"],
+      "acceptedUnits": ["mg", "g", "gm", "gms", "kg", "kgs", "ml", "l", "litre", "liter", "litres", "liters", "pc", "pcs", "piece", "pieces", "unit", "units", "no", "nos"],
+      "minimumOcrConfidence": 0.8
+    },
+    "applicabilityConditions": [
+      "The declaration is expressed in a standard unit of weight or measure, or by number where the commodity is packed or sold by number."
+    ],
+    "applicabilityExemptions": [
+      "Rule 3 excludes certain non-retail, industrial/institutional and bulk packages (generally above 25 kg or 25 L, subject to stated exceptions).",
+      "Rule 26 exclusions include quantities of 10 g or 10 ml or less, certain restaurant/hotel fast-food packages, and specified drug formulations; tobacco products are treated separately under that rule."
+    ]
+  },
+  {
+    "ruleId": "manufacturer-details",
+    "declarationName": "Manufacturer / Packer / Importer Details",
+    "regulatorySource": "Legal Metrology (Packaged Commodities) Rules, 2011, as amended; food-specific requirements are outside this MVP",
+    "applicableClause": "Rule 6(1)(a), Explanation III",
+    "effectiveDate": "2018-01-01",
+    "regulationVersion": "LMPC Rules 2011; reviewed through G.S.R. 826(E), 2026-09-21",
+    "sourceUrl": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf",
+    "amendmentSources": [
+      "https://legalmetrology-up.gov.in/metrology/pdf/PCR%20Amendment%202017%20GSR%20629%20(E)%2023.06.17.pdf",
+      "https://egazette.gov.in/WriteReadData/2026/276373.pdf"
+    ],
+    "validationConditions": {
+      "contextKeywords": ["manufactured by", "manufacturer", "packed by", "packer", "imported by", "importer", "mfg. by", "mfg by", "mfd. by", "mfd by", "mkt. by", "mkt by", "marketed by", "repacked by"],
+      "manualReviewForFoodPackages": true,
+      "minimumOcrConfidence": 0.8
+    },
+    "applicabilityConditions": [
+      "For non-food packages within scope, the required responsible-party names and addresses depend on whether the manufacturer, packer and importer are different."
+    ],
+    "applicabilityExemptions": [
+      "Rule 6(1)(a), Explanation III expressly disapplies this clause to packages containing food articles and points to the Food Safety and Standards Act, 2006 and rules made under it.",
+      "Rule 3 excludes certain non-retail, industrial/institutional and bulk packages (generally above 25 kg or 25 L, subject to stated exceptions).",
+      "Rule 26 exclusions include quantities of 10 g or 10 ml or less, certain restaurant/hotel fast-food packages, and specified drug formulations."
+    ]
+  },
+  {
+    "ruleId": "date-declaration",
+    "declarationName": "Manufacture / Pre-packing / Import Date",
+    "regulatorySource": "Legal Metrology (Packaged Commodities) Rules, 2011, as amended; food-specific requirements are outside this MVP",
+    "applicableClause": "Rule 6(1)(d), food-article proviso",
+    "effectiveDate": "2018-01-01",
+    "regulationVersion": "LMPC Rules 2011; reviewed through G.S.R. 826(E), 2026-09-21",
+    "sourceUrl": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf",
+    "amendmentSources": [
+      "https://egazette.gov.in/WriteReadData/2026/276373.pdf"
+    ],
+    "validationConditions": {
+      "contextKeywords": ["mfg", "mfd", "pkd", "manufactured on", "date of manufacture", "packed on", "packing date", "date of packing", "date of packaging", "imported on", "import date", "use by", "best before", "expiry", "exp. date", "mfg date"],
+      "manualReviewForFoodPackages": true,
+      "minimumOcrConfidence": 0.8
+    },
+    "applicabilityConditions": [
+      "The food-article proviso points to the Food Safety and Standards Act, 2006 and rules made under it; those food-package date requirements are not assessed by this Rule 6 check."
+    ],
+    "applicabilityExemptions": [
+      "Rule 6(1)(d) contains a food-article proviso pointing to separate food-safety requirements; these are not assessed by this Legal Metrology MVP.",
+      "Other Rule 6(1)(g) product-specific exceptions and Rule 3 / Rule 26 exclusions may apply, including certain non-retail, industrial/institutional, bulk, small-quantity and food-service packages."
+    ]
+  },
+  {
+    "ruleId": "consumer-care",
+    "declarationName": "Consumer Care Details",
+    "regulatorySource": "Legal Metrology (Packaged Commodities) Rules, 2011, as amended",
+    "applicableClause": "Rule 6(2)",
+    "effectiveDate": "2016-01-01",
+    "regulationVersion": "LMPC Rules 2011; reviewed through G.S.R. 826(E), 2026-09-21",
+    "sourceUrl": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf",
+    "amendmentSources": [
+      "https://egazette.gov.in/WriteReadData/2026/276373.pdf"
+    ],
+    "validationConditions": {
+      "contextKeywords": ["consumer care", "customer care", "consumer complaints", "consumer complaint", "consumer affairs", "complaints", "helpline", "toll free", "let's talk", "lets talk", "wecare", "feedback"],
+      "requiredComponents": ["name", "address", "telephone", "email"],
+      "minimumOcrConfidence": 0.8
+    },
+    "applicabilityConditions": [
+      "Rule 6(2) calls for the name, address, telephone number and email address of the person or office contactable for consumer complaints."
+    ],
+    "applicabilityExemptions": [
+      "Rule 3 excludes certain non-retail, industrial/institutional and bulk packages (generally above 25 kg or 25 L, subject to stated exceptions).",
+      "Rule 26 exclusions include quantities of 10 g or 10 ml or less, certain restaurant/hotel fast-food packages, and specified drug formulations; tobacco products are treated separately under that rule."
+    ]
+  }
+]
