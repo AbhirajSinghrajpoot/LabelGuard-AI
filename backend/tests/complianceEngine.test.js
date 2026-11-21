@@ -116,3 +116,15 @@ test('Test Fixture 6: Product name detection and custom override', () => {
   assert.equal(manualReport.productName, 'Custom Premium Atta 5kg')
   assert.equal(manualReport.isProductNameDetected, false)
 })
+
+test("Test Fixture 7: Only 'Best before X months' without statutory Month/Year of packing returns NON-COMPLIANT", () => {
+  const onlyBestBeforeLines = cleanCompliantLines.map(l => (
+    l.includes('MFD. DATE') ? 'Best before 6 months from packing' : l
+  ))
+  const report = generateComplianceReport(makeOcr(onlyBestBeforeLines), confirmedComplete)
+
+  const dateCheck = report.checks.find(c => c.ruleId === 'date-declaration')
+  assert.equal(dateCheck.status, STATUS.NON_COMPLIANT)
+  assert.equal(report.summary.compliantCount, 4)
+  assert.equal(report.summary.nonCompliantCount, 1)
+})

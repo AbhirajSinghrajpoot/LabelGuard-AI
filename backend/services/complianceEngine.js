@@ -401,14 +401,26 @@ function evaluateDate(rule, lines, reportContext) {
     )
   }
 
-  if (dateMatch || (hasBestBefore && /\d+\s*(?:months?|days?|years?)/i.test(contextText))) {
+  if (dateMatch) {
     return buildCheck(
       rule,
       detectedValue,
       confidence,
       STATUS.COMPLIANT,
-      'A valid statutory date of manufacture/packing or expiry period notation was recognized.',
+      `A valid statutory date of manufacture or packing (${dateMatch[0]}) was recognized.`,
       'No correction suggested by this limited automated check; verify date against physical specimen.',
+      evidence
+    )
+  }
+
+  if (hasBestBefore) {
+    return buildCheck(
+      rule,
+      detectedValue,
+      confidence,
+      reportContext.completeLabelConfirmed ? STATUS.NON_COMPLIANT : STATUS.MANUAL,
+      "Statutory violation under Rule 6(1)(d): Only an expiry period notation ('Best before') was detected, but the mandatory Month and Year of manufacture or packing is missing from this label.",
+      "Print the declared month and year of manufacture or pre-packing (e.g., 'Mfg Date: MM/YYYY') alongside best-before duration.",
       evidence
     )
   }
