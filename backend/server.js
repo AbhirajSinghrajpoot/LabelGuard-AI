@@ -278,25 +278,28 @@ async function extractWithGemini(file) {
   const base64Data = file.buffer.toString('base64')
   const mimeType = file.mimetype || 'image/jpeg'
 
-  const prompt = `You are a specialized statutory compliance OCR and vision transcription engine for Indian Legal Metrology (Packaged Commodities) Rules, 2011.
-Analyze all panels and text regions of this packaged product label (including HORIZONTAL, VERTICAL, ROTATED, INKJET-STAMPED, and DOT-MATRIX text).
+  const prompt = `You are a specialized statutory compliance OCR and vision inspection engine for Indian Legal Metrology (Packaged Commodities) Rules, 2011.
+Inspect this product packaging label image carefully.
 
-Extract all statutory packaging details and return each item as a clear text line:
-1. Product Name and Brand (e.g. Dettol Original Soap, Atta)
-2. Maximum Retail Price (MRP) with currency and tax phrase (e.g. MRP Rs. 42.00 (incl. of all taxes) or ₹42/-)
-3. Unit Sale Price if declared (e.g. ₹0.42/g)
-4. Net Quantity / Net Weight / Volume with statutory unit (e.g. Net Wt. 100g, 5 kg)
-5. Date of Manufacture or Pre-Packing (Month/Year e.g. 08/2024 or 08/24)
-6. Expiry / Best Before / Use Before date or duration (e.g. Use Before: 08/2026, Best before 6 months)
-7. Batch / Lot number (e.g. BSSR475)
-8. Complete Manufacturer / Packer / Marketer name and address with 6-digit postal PIN code
-9. Complete Consumer Care Desk (Toll Free / Phone Number, Email, Address with PIN code)
-10. All other visible printed or stamped text lines verbatim.
+CRITICAL QUALITY & READABILITY ASSESSMENT:
+1. Examine visual clarity and focus. Is any part of the label or declaration blurry, out-of-focus, low-resolution, or obscured?
+2. DO NOT guess or hallucinate text that is blurry, pixelated, or illegible.
+3. For each visible declaration, rate confidence STRICTLY between 0.0 and 1.0 based on VISUAL SHARPNESS:
+   - 0.90 to 1.0: Crystal clear, sharp, fully legible printed or stamped text.
+   - 0.60 to 0.85: Slightly faint, small, or low-contrast, but readable.
+   - 0.10 to 0.50: Blurry, out-of-focus, smudged, illegible, or guessed text.
 
-IMPORTANT:
-- Carefully inspect vertical margins, colored strips, and crimps for vertical inkjet stamps (price, dates, batch).
-- Output each declaration on a separate line.
-- Do NOT add markdown bolding (**), asterisks (*), or headers.`
+Return a JSON object:
+{
+  "is_blurry": boolean,
+  "quality_warnings": ["string explaining any blur, degradation, or unreadable areas if present"],
+  "declarations": [
+    {
+      "text": "transcribed text verbatim (or [UNREADABLE BLURRED TEXT] if blurry)",
+      "confidence": number
+    }
+  ]
+}`
 
   const models = [
     'gemini-3.1-flash-lite',
@@ -326,42 +329,66 @@ IMPORTANT:
             }
           ],
           generationConfig: {
+            response_mime_type: 'application/json',
             temperature: 0.1
           }
         },
         { timeout: 45000, headers: { 'Content-Type': 'application/json' } }
       )
 
-      const rawText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-      if (!rawText.trim()) {
+      const rawJson = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      if (!rawJson.trim()) {
         continue
       }
 
-      const rawLines = rawText
-        .split('\n')
-        .map(l => l.replace(/^[-*•]\s*/, '').trim())
-        .filter(Boolean)
+      let parsed = null
+      try {
+        parsed = JSON.parse(rawJson)
+      } catch (parseErr) {
+        console.warn(`[Gemini Cloud OCR] JSON parse error:`, parseErr.message)
+      }
 
-      const results = rawLines.map((line) => ({
-        text: line,
-        confidence: 0.98,
-        page_number: 1
-      }))
+      const qualityWarnings = []
+      const results = []
 
-      console.log(`[Gemini Cloud OCR] Success with ${model}! Extracted ${results.length} lines.`)
+      if (parsed && Array.isArray(parsed.declarations) && parsed.declarations.length > 0) {
+        if (parsed.is_blurry) {
+          qualityWarnings.push(...(parsed.quality_warnings || ['The image appears blurry or partially illegible; declarations require manual verification.']))
+        }
+        for (const item of parsed.declarations) {
+          if (!item.text || !item.text.trim()) continue
+          const conf = Number(item.confidence)
+          results.push({
+            text: item.text.trim(),
+            confidence: Number.isFinite(conf) ? Math.max(0.1, Math.min(1.0, conf)) : 0.85,
+            page_number: 1
+          })
+        }
+      } else {
+        const rawLines = rawJson.split('\n').map(l => l.replace(/^[-*•]\s*/, '').trim()).filter(Boolean)
+        for (const line of rawLines) {
+          results.push({
+            text: line,
+            confidence: 0.88,
+            page_number: 1
+          })
+        }
+      }
+
+      console.log(`[Gemini Cloud OCR] Success with ${model}! Extracted ${results.length} lines, blur warnings: ${qualityWarnings.length}.`)
 
       return {
         status: 'success',
         filename: path.basename(file.originalname || 'label.jpg'),
         ocr_engine: `Gemini Cloud Vision (${model})`,
         total_lines: results.length,
-        extracted_text: rawLines.join('\n'),
+        extracted_text: results.map(r => r.text).join('\n'),
         results,
         width: 800,
         height: 1000,
         page_count: 1,
         processed_image_used: false,
-        quality_warnings: []
+        quality_warnings: qualityWarnings
       }
     } catch (err) {
       lastError = err
