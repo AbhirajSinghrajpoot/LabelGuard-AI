@@ -128,3 +128,51 @@ test("Test Fixture 7: Only 'Best before X months' without statutory Month/Year o
   assert.equal(report.summary.compliantCount, 4)
   assert.equal(report.summary.nonCompliantCount, 1)
 })
+
+test('Test Fixture 8: Consumer Care heading-only (no phone/email/name/address) on complete label returns NON-COMPLIANT', () => {
+  // Label has "Consumer Care:" heading but NO actual contact details below it.
+  // The manufacturer address (PIN 492001) appears BEFORE the consumer care section.
+  // Engine must NOT confuse manufacturer PIN with consumer-care address.
+  const headingOnlyLines = [
+    'AARAV CHAKKI ATTA',
+    'MRP Rs. 240.00 (INCL. OF ALL TAXES)',
+    'NET WEIGHT: 5 kg',
+    'MFD. DATE: 10/2026',
+    'MANUFACTURED BY: Aarav Foods Private Limited',
+    'Plot 14-B, Industrial Area, Raipur, C.G. - PIN 492001',
+    'Consumer Care:',              // heading present — but nothing after it
+    'Product of India',
+    'SAMPLE LABEL - FOR TESTING ONLY'
+  ]
+  const report = generateComplianceReport(makeOcr(headingOnlyLines), confirmedComplete)
+
+  const careCheck = report.checks.find(c => c.ruleId === 'consumer-care')
+  assert.equal(careCheck.status, STATUS.NON_COMPLIANT,
+    `Expected NON_COMPLIANT but got ${careCheck.status}. Evidence: ${JSON.stringify(careCheck.evidence)}`)
+  assert.ok(careCheck.evidence.telephone === null, 'telephone should be null')
+  assert.ok(careCheck.evidence.email === null, 'email should be null')
+})
+
+test('Test Fixture 9: 12/13-digit barcode must NOT be detected as a phone number in Consumer Care', () => {
+  // Barcode 8901030082190 (13 digits) must not satisfy the telephone requirement
+  const barcodeAsPhoneTrap = [
+    'AARAV CHAKKI ATTA',
+    'MRP Rs. 240.00 (INCL. OF ALL TAXES)',
+    'NET WEIGHT: 5 kg',
+    'MFD. DATE: 10/2026',
+    'MANUFACTURED BY: Aarav Foods Private Limited',
+    'Plot 14-B, Industrial Area, Raipur, C.G. - PIN 492001',
+    'Consumer Care:',
+    'Aarav Foods Pvt. Ltd., Raipur - 492001',
+    '8901030082190',               // barcode — must NOT be treated as phone
+    'care@aaravfoods.in'
+  ]
+  const report = generateComplianceReport(makeOcr(barcodeAsPhoneTrap), confirmedComplete)
+
+  const careCheck = report.checks.find(c => c.ruleId === 'consumer-care')
+  // No valid phone, no name/desk → should be NON-COMPLIANT
+  assert.equal(careCheck.evidence.telephone, null,
+    `Barcode 8901030082190 must not be detected as phone. Got: ${careCheck.evidence.telephone}`)
+  assert.notEqual(careCheck.status, 'COMPLIANT',
+    'Label with barcode-only "phone" should not PASS')
+})

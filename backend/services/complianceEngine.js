@@ -449,21 +449,27 @@ function evaluateDate(rule, lines, reportContext) {
 }
 
 function evaluateConsumerCare(rule, lines, reportContext) {
-  const contexts = findContexts(
-    lines,
-    patternFromKeywords(rule.validationConditions.contextKeywords),
-    1,
-    8
-  )
+  const careKeywordPattern = patternFromKeywords(rule.validationConditions.contextKeywords)
+  const contexts = findContexts(lines, careKeywordPattern, 1, 8)
   const contextText = contexts.map((line) => line.text).join('\n')
-  const phoneMatch = contextText.match(/\b(?:1800|1860)[-\s]?\d{3}[-\s]?\d{3,4}\b|\b(?:\+91[-\s]?)?[6-9]\d{9}\b|\b0\d{2,4}[-\s]?\d{6,8}\b/)
-  const emailMatch = contextText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
-  
-  const namePresent = hasLabeledValue(contexts, /\b(?:name|contact person|person or office|manager|officer|desk|executive|cell)\s*[:\-]?/i)
-    || contexts.some(l => /\b(?:grievance|officer|manager|desk|care cell|consumer)\b/i.test(l.text))
 
-  const pinMatch = contextText.match(/\b[1-9]\d{5}\b/)
-  const addressPresent = hasLabeledValue(contexts, /\b(?:address|regd\.?\s*off\.?|office|p\.?o\.?\s*bag)\s*[:\-]?/i)
+  // Phone: toll-free 1800/1860, 10-digit mobile, STD landline — NOT 12/13 digit barcodes
+  const phoneMatch = contextText.match(
+    /\b(?:1800|1860)[-\s]?\d{3}[-\s]?\d{3,4}\b|\b(?:\+91[-\s]?)?[6-9]\d{9}\b|\b0\d{2,4}[-\s]?\d{6,8}\b/
+  )
+  const emailMatch = contextText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
+
+  // namePresent: a contact name/desk/officer AFTER the Consumer Care heading.
+  // Exclude the Consumer Care heading line itself to avoid false-positive self-match.
+  const contextsAfterHeading = contexts.filter(l => !careKeywordPattern.test(l.text))
+  const namePresent = hasLabeledValue(contexts, /\b(?:name|contact\s+person|person\s+or\s+office|manager|officer|desk|executive)\s*[:\-]?/i)
+    || contextsAfterHeading.some(l => /\b(?:grievance\s+officer|consumer\s+desk|care\s+desk|care\s+cell|complaints?\s+officer)\b/i.test(l.text))
+
+  // addressPresent: a PIN code or labeled address keyword in the consumer care context window.
+  // Use only lines AFTER the Consumer Care heading to avoid picking up manufacturer's PIN.
+  const afterHeadingText = contextsAfterHeading.map(l => l.text).join('\n')
+  const pinMatch = afterHeadingText.match(/\b[1-9]\d{5}\b/)
+  const addressPresent = hasLabeledValue(contexts, /\b(?:address|regd\.?\s*off\.?|p\.?o\.?\s*bag)\s*[:\-]?/i)
     || Boolean(pinMatch)
 
   const confidence = minimumConfidence(contexts)
