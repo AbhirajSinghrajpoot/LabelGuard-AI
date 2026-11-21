@@ -370,40 +370,122 @@ CRITICAL INSTRUCTIONS:
   throw lastError || new Error('All Gemini OCR models failed.')
 }
 
+function listUnique(arr) {
+  return Array.from(new Set(arr || []))
+}
+
+function mergeDualEngineResults(paddleResult, geminiResult, filename) {
+  const geminiLines = Array.isArray(geminiResult.results) ? geminiResult.results : []
+  const paddleLines = Array.isArray(paddleResult.results) ? paddleResult.results : []
+
+  const seenNormalized = new Set(
+    geminiLines.map(l => l.text.toLowerCase().replace(/[^a-z0-9]/g, ''))
+  )
+
+  const mergedResults = [...geminiLines]
+
+  for (const pLine of paddleLines) {
+    const norm = (pLine.text || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (norm.length > 2 && !seenNormalized.has(norm)) {
+      const isSub = geminiLines.some(g => g.text.toLowerCase().includes((pLine.text || '').toLowerCase()))
+      if (!isSub) {
+        seenNormalized.add(norm)
+        mergedResults.push({
+          text: pLine.text.trim(),
+          confidence: Number(pLine.confidence) || 0.92,
+          page_number: pLine.page_number || 1
+        })
+      }
+    }
+  }
+
+  const qualityWarnings = [
+    ...(paddleResult.quality_warnings || []),
+    ...(geminiResult.quality_warnings || [])
+  ]
+
+  return {
+    status: 'success',
+    filename,
+    ocr_engine: 'Dual Engine (PaddleOCR + Gemini Cloud Vision)',
+    total_lines: mergedResults.length,
+    extracted_text: mergedResults.map(l => l.text).join('\n'),
+    results: mergedResults,
+    width: paddleResult.width || geminiResult.width || 800,
+    height: paddleResult.height || geminiResult.height || 1000,
+    page_count: Math.max(paddleResult.page_count || 1, geminiResult.page_count || 1),
+    processed_image_used: Boolean(paddleResult.processed_image_used),
+    quality_warnings: listUnique(qualityWarnings)
+  }
+}
+
+async function extractWithPaddle(file) {
+  const formData = new FormData()
+  formData.append(
+    'file',
+    new Blob([file.buffer], { type: file.mimetype }),
+    path.basename(file.originalname)
+  )
+  const response = await axios.post(
+    `${AI_SERVICE_URL}/api/image/inspect`,
+    formData,
+    { timeout: Math.min(AI_SERVICE_TIMEOUT_MS, 25000) }
+  )
+  return response.data
+}
+
 async function forwardToAiService(file) {
   const hasGemini = Boolean(GEMINI_API_KEY)
-  const isDefaultLocalAi = AI_SERVICE_URL === 'http://127.0.0.1:8000' || AI_SERVICE_URL.includes('localhost')
+  const filename = path.basename(file.originalname || 'label.jpg')
 
-  // When deployed to cloud (e.g. Render) without custom AI service, use Gemini Cloud OCR directly
-  if (hasGemini && (isDefaultLocalAi || !AI_SERVICE_URL)) {
-    try {
-      return await extractWithGemini(file)
-    } catch (geminiErr) {
-      console.warn('[AI Service] Direct Gemini OCR call failed, attempting local AI service fallback:', geminiErr.message)
-    }
+  const tasks = []
+  const taskNames = []
+
+  // Engine 1: Local / Configured PaddleOCR
+  tasks.push(extractWithPaddle(file))
+  taskNames.push('PaddleOCR')
+
+  // Engine 2: Gemini Cloud Vision
+  if (hasGemini) {
+    tasks.push(extractWithGemini(file))
+    taskNames.push('Gemini')
   }
 
-  // Attempt local/custom AI_SERVICE_URL (e.g. PaddleOCR)
-  try {
-    const formData = new FormData()
-    formData.append(
-      'file',
-      new Blob([file.buffer], { type: file.mimetype }),
-      path.basename(file.originalname)
-    )
-    const response = await axios.post(
-      `${AI_SERVICE_URL}/api/image/inspect`,
-      formData,
-      { timeout: Math.min(AI_SERVICE_TIMEOUT_MS, 15000) }
-    )
-    return response.data
-  } catch (paddleErr) {
-    if (hasGemini) {
-      console.log('[AI Service] AI_SERVICE_URL unreachable, falling back to Gemini Cloud OCR...')
-      return await extractWithGemini(file)
-    }
-    throw paddleErr
+  // Execute in parallel
+  const settled = await Promise.allSettled(tasks)
+
+  const paddleIndex = taskNames.indexOf('PaddleOCR')
+  const geminiIndex = taskNames.indexOf('Gemini')
+
+  const paddleSettled = paddleIndex !== -1 ? settled[paddleIndex] : null
+  const geminiSettled = geminiIndex !== -1 ? settled[geminiIndex] : null
+
+  const paddleOk = paddleSettled?.status === 'fulfilled' ? paddleSettled.value : null
+  const geminiOk = geminiSettled?.status === 'fulfilled' ? geminiSettled.value : null
+
+  // 1. Both succeeded -> Dual Engine Parallel Fusion!
+  if (paddleOk && geminiOk) {
+    console.log('[Dual Engine] Both PaddleOCR and Gemini Vision succeeded! Merging results.')
+    return mergeDualEngineResults(paddleOk, geminiOk, filename)
   }
+
+  // 2. Only Gemini succeeded (e.g. on Render Cloud where port 8000 is unreachable)
+  if (geminiOk) {
+    console.log('[Dual Engine] PaddleOCR unreachable. Operating with Gemini Cloud Vision.')
+    return geminiOk
+  }
+
+  // 3. Only PaddleOCR succeeded (e.g. local offline mode or Gemini API limit)
+  if (paddleOk) {
+    console.log('[Dual Engine] Gemini unreachable. Operating with local PaddleOCR.')
+    return paddleOk
+  }
+
+  // 4. Both failed
+  const paddleErr = paddleSettled?.reason
+  const geminiErr = geminiSettled?.reason
+  console.error('[Dual Engine Error] PaddleOCR error:', paddleErr?.message, '| Gemini error:', geminiErr?.message)
+  throw paddleErr || geminiErr || new Error('All AI OCR engines failed to inspect image.')
 }
 
 function handleAiServiceError(error, res, next) {
