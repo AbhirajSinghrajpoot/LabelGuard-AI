@@ -23,6 +23,7 @@ const AI_SERVICE_URL = (process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000').r
 const AI_SERVICE_TIMEOUT_MS = Number(process.env.AI_SERVICE_TIMEOUT_MS) || 180000
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_labelguard_2026_metrology_secure'
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
 
 // Memory history fallback when MongoDB is offline
 const memoryHistory = []
@@ -269,19 +270,140 @@ app.get('/api/auth/me', requireAuth, async (req, res, next) => {
    AI SERVICE COMMUNICATION
 ══════════════════════════════════════════════════════════ */
 
+async function extractWithGemini(file) {
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is not configured.')
+  }
+
+  const base64Data = file.buffer.toString('base64')
+  const mimeType = file.mimetype || 'image/jpeg'
+
+  const prompt = `You are a statutory compliance OCR engine for Indian Legal Metrology (Packaged Commodities) Rules, 2011.
+Extract ALL printed and handwritten text verbatim from this packaged product label image line-by-line.
+Ensure you capture every detail:
+- Product name, brand name
+- Net quantity / weight / volume with statutory unit (e.g., 5 kg, 500 g, 1 L)
+- Maximum Retail Price (MRP) and statutory tax declaration (e.g., "MRP Rs. 240.00 (Incl. of all taxes)")
+- Manufacturing date / Packing date / Month-Year / Best before
+- Batch number / Lot number
+- Complete manufacturer / packer / importer name and registered address with 6-digit postal PIN code
+- Complete consumer care desk details (Toll-Free Phone, Email, Address with PIN code)
+- Country of origin (e.g. "Product of India")
+
+CRITICAL INSTRUCTIONS:
+1. Output ONLY the raw extracted text lines verbatim, one per line.
+2. Do NOT add markdown bolding (**), asterisks (*), bullet points, or numbering.
+3. Do NOT add headers (#), introductory commentary, or explanatory text.`
+
+  const models = [
+    'gemini-3-flash-preview',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-latest'
+  ]
+
+  let lastError = null
+  for (const model of models) {
+    try {
+      console.log(`[Gemini Cloud OCR] Attempting extraction with ${model}...`)
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Data
+                  }
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.1
+          }
+        },
+        { timeout: 45000, headers: { 'Content-Type': 'application/json' } }
+      )
+
+      const rawText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      if (!rawText.trim()) {
+        continue
+      }
+
+      const rawLines = rawText
+        .split('\n')
+        .map(l => l.replace(/^[-*•]\s*/, '').trim())
+        .filter(Boolean)
+
+      const results = rawLines.map((line) => ({
+        text: line,
+        confidence: 0.98,
+        page_number: 1
+      }))
+
+      console.log(`[Gemini Cloud OCR] Success with ${model}! Extracted ${results.length} lines.`)
+
+      return {
+        status: 'success',
+        filename: path.basename(file.originalname || 'label.jpg'),
+        ocr_engine: `Gemini Cloud Vision (${model})`,
+        total_lines: results.length,
+        extracted_text: rawLines.join('\n'),
+        results,
+        width: 800,
+        height: 1000,
+        page_count: 1,
+        processed_image_used: false,
+        quality_warnings: []
+      }
+    } catch (err) {
+      lastError = err
+      const errMsg = err.response?.data?.error?.message || err.message
+      console.warn(`[Gemini Cloud OCR] Model ${model} failed (${errMsg}), trying fallback...`)
+    }
+  }
+
+  throw lastError || new Error('All Gemini OCR models failed.')
+}
+
 async function forwardToAiService(file) {
-  const formData = new FormData()
-  formData.append(
-    'file',
-    new Blob([file.buffer], { type: file.mimetype }),
-    path.basename(file.originalname)
-  )
-  const response = await axios.post(
-    `${AI_SERVICE_URL}/api/image/inspect`,
-    formData,
-    { timeout: AI_SERVICE_TIMEOUT_MS }
-  )
-  return response.data
+  const hasGemini = Boolean(GEMINI_API_KEY)
+  const isDefaultLocalAi = AI_SERVICE_URL === 'http://127.0.0.1:8000' || AI_SERVICE_URL.includes('localhost')
+
+  // When deployed to cloud (e.g. Render) without custom AI service, use Gemini Cloud OCR directly
+  if (hasGemini && (isDefaultLocalAi || !AI_SERVICE_URL)) {
+    try {
+      return await extractWithGemini(file)
+    } catch (geminiErr) {
+      console.warn('[AI Service] Direct Gemini OCR call failed, attempting local AI service fallback:', geminiErr.message)
+    }
+  }
+
+  // Attempt local/custom AI_SERVICE_URL (e.g. PaddleOCR)
+  try {
+    const formData = new FormData()
+    formData.append(
+      'file',
+      new Blob([file.buffer], { type: file.mimetype }),
+      path.basename(file.originalname)
+    )
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/api/image/inspect`,
+      formData,
+      { timeout: Math.min(AI_SERVICE_TIMEOUT_MS, 15000) }
+    )
+    return response.data
+  } catch (paddleErr) {
+    if (hasGemini) {
+      console.log('[AI Service] AI_SERVICE_URL unreachable, falling back to Gemini Cloud OCR...')
+      return await extractWithGemini(file)
+    }
+    throw paddleErr
+  }
 }
 
 function handleAiServiceError(error, res, next) {
@@ -293,7 +415,7 @@ function handleAiServiceError(error, res, next) {
       return res.status(504).json({ status: 'error', message: 'The image inspection timed out. Please try again with a clearer image.' })
     }
     if (error.request) {
-      return res.status(503).json({ status: 'error', message: 'The AI inspection service (PaddleOCR) is currently unreachable on port 8000.' })
+      return res.status(503).json({ status: 'error', message: 'The AI inspection service is currently unreachable. Please verify GEMINI_API_KEY on Render.' })
     }
   }
   next(error)
