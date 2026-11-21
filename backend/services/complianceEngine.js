@@ -456,7 +456,7 @@ function evaluateConsumerCare(rule, lines, reportContext) {
     8
   )
   const contextText = contexts.map((line) => line.text).join('\n')
-  const phoneMatch = contextText.match(/(?:1800|1860)[\s-]?\d{3}[\s-]?\d{3,4}\b|(?:\+?91[\s-]?)?(?:0?\d{2,4}[\s-]?)?[2-9]\d(?:[\s-]?\d){6,9}\b/)
+  const phoneMatch = contextText.match(/\b(?:1800|1860)[-\s]?\d{3}[-\s]?\d{3,4}\b|\b(?:\+91[-\s]?)?[6-9]\d{9}\b|\b0\d{2,4}[-\s]?\d{6,8}\b/)
   const emailMatch = contextText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
   
   const namePresent = hasLabeledValue(contexts, /\b(?:name|contact person|person or office|manager|officer|desk|executive|cell)\s*[:\-]?/i)
@@ -510,35 +510,33 @@ function evaluateConsumerCare(rule, lines, reportContext) {
       evidence
     )
   }
-  if (phoneMatch || emailMatch) {
+
+  // If complete label is confirmed, missing mandatory Rule 6(2) components is strictly NON-COMPLIANT (FAIL)
+  if (reportContext.completeLabelConfirmed) {
+    const missing = []
+    if (!phoneMatch) missing.push('telephone/toll-free number')
+    if (!emailMatch) missing.push('email address')
+    if (!namePresent) missing.push('contact person or office designation')
+    if (!addressPresent) missing.push('postal address with PIN code')
+
     return buildCheck(
       rule,
       detectedValue,
       confidence,
-      STATUS.MANUAL,
-      'Consumer contact was partially recognized (telephone or email present), but required address or designated officer could not be verified automatically.',
-      'Manually verify that the consumer-complaint contact includes responsible person/office name and address as well as telephone and email.',
+      STATUS.NON_COMPLIANT,
+      `Statutory non-compliance under Rule 6(2): Mandatory consumer care contact components are missing from this complete label (${missing.join(', ')}).`,
+      'Declare the contact person/office name, complete address with PIN code, valid phone/toll-free number, and email address for consumer complaints.',
       evidence
     )
   }
-  if (!reportContext.completeLabelConfirmed) {
-    return buildCheck(
-      rule,
-      detectedValue,
-      confidence,
-      STATUS.MANUAL,
-      'One or more Rule 6(2) consumer-contact components were not recognized, but complete package coverage was not confirmed.',
-      'Review the complete label for the contact person/office name, address, telephone number, and email address.',
-      evidence
-    )
-  }
+
   return buildCheck(
     rule,
     detectedValue,
     confidence,
-    STATUS.NON_COMPLIANT,
-    'The complete, readable label was confirmed, but the context-linked consumer-complaint contact does not include required Rule 6(2) components.',
-    'Provide the contact person/office name, address, telephone number, and email address for consumer complaints.',
+    STATUS.MANUAL,
+    'One or more Rule 6(2) consumer-contact components were not recognized, but complete package coverage was not confirmed.',
+    'Review the complete package for the contact person/office name, address, telephone number, and email address.',
     evidence
   )
 }
