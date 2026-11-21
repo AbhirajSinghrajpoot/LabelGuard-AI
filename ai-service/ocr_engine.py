@@ -1,6 +1,7 @@
 import threading
 from typing import Callable
 
+import cv2
 import numpy as np
 from paddleocr import PaddleOCR
 
@@ -76,13 +77,29 @@ def extract_text(
             engine = _get_engine()
             original_results = _run_ocr(engine, image)
 
-            if original_results and (len(original_results) >= 3 or _average_confidence(original_results) >= 0.70):
-                return original_results, False
+            # Multi-angle pass for vertical / rotated product packaging and inkjet stamps
+            rotated_results = []
+            try:
+                rot90 = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+                res90 = _run_ocr(engine, rot90)
+                seen_texts = set(r["text"].lower().replace(" ", "") for r in original_results)
+                for r in res90:
+                    cleaned = r["text"].lower().replace(" ", "")
+                    if len(cleaned) > 2 and cleaned not in seen_texts:
+                        seen_texts.add(cleaned)
+                        rotated_results.append(r)
+            except Exception:
+                pass
+
+            combined_results = list(original_results) + rotated_results
+
+            if combined_results and (len(combined_results) >= 3 or _average_confidence(combined_results) >= 0.70):
+                return combined_results, False
 
             processed_results = _run_ocr(engine, preprocess(image))
-            if _average_confidence(processed_results) > _average_confidence(original_results):
+            if _average_confidence(processed_results) > _average_confidence(combined_results):
                 return processed_results, True
-            return original_results, False
+            return combined_results, False
     except OCRProcessingError:
         raise
     except Exception as exc:

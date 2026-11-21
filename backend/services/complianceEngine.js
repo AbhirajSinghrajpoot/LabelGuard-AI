@@ -113,12 +113,12 @@ function evaluateMissing(rule, detectedValue, confidence, reportContext, evidenc
 }
 
 function evaluateMrp(rule, lines, reportContext) {
-  const contexts = findContexts(lines, patternFromKeywords(rule.validationConditions.contextKeywords), 0, 3)
+  const contexts = findContexts(lines, patternFromKeywords(rule.validationConditions.contextKeywords), 0, 7)
   const contextText = contexts.map((line) => line.text).join(' ')
   const currencyAmountMatch = contextText.match(/(?:₹|rs\.?|inr)\s*([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:\/-)?|([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:₹|rs\.?|inr)(?![a-z])/i)
   const amountOnlyMatch = rule.validationConditions.requiresCurrency
     ? null
-    : contextText.match(/\b([0-9][0-9,]*(?:\.\d{1,2})?)\b/)
+    : contextText.match(/\b([0-9]{1,5}(?:\.\d{1,2})?)\b/)
   const amountMatch = currencyAmountMatch || amountOnlyMatch
   const amount = amountMatch ? (amountMatch[1] || amountMatch[2]) : null
   const hasCurrency = Boolean(currencyAmountMatch)
@@ -359,7 +359,7 @@ function evaluateDate(rule, lines, reportContext) {
     lines,
     patternFromKeywords(rule.validationConditions.contextKeywords),
     0,
-    3
+    7
   )
   const contextText = contexts.map((line) => line.text).join(' ')
   const confidence = minimumConfidence(contexts)

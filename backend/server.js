@@ -278,27 +278,30 @@ async function extractWithGemini(file) {
   const base64Data = file.buffer.toString('base64')
   const mimeType = file.mimetype || 'image/jpeg'
 
-  const prompt = `You are a statutory compliance OCR engine for Indian Legal Metrology (Packaged Commodities) Rules, 2011.
-Extract ALL printed and handwritten text verbatim from this packaged product label image line-by-line.
-Ensure you capture every detail:
-- Product name, brand name
-- Net quantity / weight / volume with statutory unit (e.g., 5 kg, 500 g, 1 L)
-- Maximum Retail Price (MRP) and statutory tax declaration (e.g., "MRP Rs. 240.00 (Incl. of all taxes)")
-- Manufacturing date / Packing date / Month-Year / Best before
-- Batch number / Lot number
-- Complete manufacturer / packer / importer name and registered address with 6-digit postal PIN code
-- Complete consumer care desk details (Toll-Free Phone, Email, Address with PIN code)
-- Country of origin (e.g. "Product of India")
+  const prompt = `You are a specialized statutory compliance OCR and vision transcription engine for Indian Legal Metrology (Packaged Commodities) Rules, 2011.
+Analyze all panels and text regions of this packaged product label (including HORIZONTAL, VERTICAL, ROTATED, INKJET-STAMPED, and DOT-MATRIX text).
 
-CRITICAL INSTRUCTIONS:
-1. Output ONLY the raw extracted text lines verbatim, one per line.
-2. Do NOT add markdown bolding (**), asterisks (*), bullet points, or numbering.
-3. Do NOT add headers (#), introductory commentary, or explanatory text.`
+Extract all statutory packaging details and return each item as a clear text line:
+1. Product Name and Brand (e.g. Dettol Original Soap, Atta)
+2. Maximum Retail Price (MRP) with currency and tax phrase (e.g. MRP Rs. 42.00 (incl. of all taxes) or ₹42/-)
+3. Unit Sale Price if declared (e.g. ₹0.42/g)
+4. Net Quantity / Net Weight / Volume with statutory unit (e.g. Net Wt. 100g, 5 kg)
+5. Date of Manufacture or Pre-Packing (Month/Year e.g. 08/2024 or 08/24)
+6. Expiry / Best Before / Use Before date or duration (e.g. Use Before: 08/2026, Best before 6 months)
+7. Batch / Lot number (e.g. BSSR475)
+8. Complete Manufacturer / Packer / Marketer name and address with 6-digit postal PIN code
+9. Complete Consumer Care Desk (Toll Free / Phone Number, Email, Address with PIN code)
+10. All other visible printed or stamped text lines verbatim.
+
+IMPORTANT:
+- Carefully inspect vertical margins, colored strips, and crimps for vertical inkjet stamps (price, dates, batch).
+- Output each declaration on a separate line.
+- Do NOT add markdown bolding (**), asterisks (*), or headers.`
 
   const models = [
-    'gemini-3-flash-preview',
-    'gemini-3.5-flash',
     'gemini-3.1-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-3-flash-preview',
     'gemini-flash-latest'
   ]
 
